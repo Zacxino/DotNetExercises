@@ -8,15 +8,15 @@ Console.WriteLine("Hello, World!");
 #region WebRequestFtpUploader
 
 var ftpUploader = new WebRequestFtpUploader(
-    "ftp.example.com",
-    "username",
-    "password"
+    "172.18.1.80",
+    "EDY",
+    "ben"
 );
 
 try
 {
     await ftpUploader.UploadFileAsync(
-        @"C:\local\file.txt",
+        @"E:\test.txt",
         "remote/path/file.txt"
     );
     Console.WriteLine("File uploaded successfully");
@@ -33,8 +33,12 @@ catch (Exception ex)
 
 #endregion
 
-#region FluentFtpUploader   
-using var uploader = new FluentFtpUploader("ftp.example.com", "name", "password");
-await uploader.UploadFileAsync("localfile.txt", "/remote/path/file.txt");
-#endregion
+#region FluentFtpUploader
 
+using (var uploader = new FluentFtpUploader("ftp://192.168.132.1", "EDY", "ben"))
+{
+    await uploader.UploadFileAsync(@"E:\test.txt", Path.GetDirectoryName("remote/path/file/test.txt"));
+}
+
+
+#endregion

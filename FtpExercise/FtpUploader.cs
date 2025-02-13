@@ -9,6 +9,7 @@ public class WebRequestFtpUploader : IDisposable
     private readonly NetworkCredential _credentials;
     private bool _disposed;
 
+    [Obsolete("Use the constructor with host, username, and password parameters.")]
     public WebRequestFtpUploader(string host, string username, string password)
     {
         if (!host.StartsWith("ftp://"))
@@ -43,7 +44,9 @@ public class WebRequestFtpUploader : IDisposable
             if (!await DirectoryExists(currentPath))
             {
                 var createRequest = CreateRequest(currentPath, WebRequestMethods.Ftp.MakeDirectory);
-                using (await createRequest.GetResponseAsync()) { }
+                using (await createRequest.GetResponseAsync())
+                {
+                }
             }
         }
     }
@@ -53,11 +56,14 @@ public class WebRequestFtpUploader : IDisposable
         try
         {
             var request = CreateRequest(Path.GetDirectoryName(path), WebRequestMethods.Ftp.ListDirectory);
-            using (await request.GetResponseAsync()) { }
+            using (await request.GetResponseAsync())
+            {
+            }
+
             return true;
         }
         catch (WebException ex) when (ex.Response is FtpWebResponse response &&
-                                     response.StatusCode == FtpStatusCode.ActionNotTakenFileUnavailable)
+                                      response.StatusCode == FtpStatusCode.ActionNotTakenFileUnavailable)
         {
             return false;
         }
@@ -69,7 +75,7 @@ public class WebRequestFtpUploader : IDisposable
         request.Credentials = _credentials;
         request.Method = method;
         request.UseBinary = true;
-        request.EnableSsl = false;  // 根据需要修改
+        request.EnableSsl = false; // 根据需要修改
         request.UsePassive = true; // 大多数现代 FTP 服务器需要被动模式
         return request;
     }
@@ -86,6 +92,7 @@ public class WebRequestFtpUploader : IDisposable
             // 这里可以添加资源清理代码
             _disposed = true;
         }
+
         GC.SuppressFinalize(this);
     }
 
@@ -121,13 +128,20 @@ public class FluentFtpUploader : IDisposable
     public async Task UploadFileAsync(string localPath, string remotePath, bool overwrite = true)
     {
         await ConnectAsync();
-        await _ftpClient.UploadFile(localPath, remotePath, overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.AddToEnd);
+        await CreateDirectoryRecursive(remotePath);
+        await _ftpClient.UploadFiles(new List<string> { localPath }, remotePath, overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Resume);
+        // 上传单个会有报错 
+        //await _ftpClient.UploadFile(localPath, remotePath, overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Resume);
     }
 
     public async Task CreateDirectoryRecursive(string remotePath)
     {
         await ConnectAsync();
-        await _ftpClient.CreateDirectory(remotePath);
+        // 检查目录存在性，若不存在则创建
+        if (!await _ftpClient.DirectoryExists(remotePath))
+        {
+            await _ftpClient.CreateDirectory(remotePath);
+        }
     }
 
     public void Dispose()
@@ -138,10 +152,11 @@ public class FluentFtpUploader : IDisposable
             {
                 _ftpClient.Disconnect();
             }
+
             _ftpClient.Dispose();
             _disposed = true;
         }
+
         GC.SuppressFinalize(this);
     }
 }
-
